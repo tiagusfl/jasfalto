@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Indicadores de Consumo das Usinas</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 p-2.5 rounded-lg text-white">
+                    <i class="fa-solid fa-industry text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Dashboard de Indicadores de Consumo das Usinas</h1>
+                    <p class="text-xs text-slate-400">Controle Gerencial, Monitoramento e Análise de Desempenho</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4 text-sm">
+                <div class="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-2">
+                    <i class="fa-regular fa-clock text-brand-500"></i>
+                    <span id="last-update" class="text-slate-300 text-xs">Atualizado: Carregando...</span>
+                </div>
+                <button onclick="openImportModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>Importar Excel</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- Filters Section -->
+        <section class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-4 border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-filter text-brand-600"></i>
+                    <h2 class="font-semibold text-slate-700">Filtros Globais</h2>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="resetFilters()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded font-medium transition">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Limpar Filtros
+                    </button>
+                    <button onclick="setQuickFilter('all')" class="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 px-3 py-1.5 rounded font-medium transition">
+                        Todo o Período
+                    </button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Data Inicial</label>
+                    <input type="date" id="filter-start-date" onchange="applyFilters()" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Data Final</label>
+                    <input type="date" id="filter-end-date" onchange="applyFilters()" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Usina</label>
+                    <select id="filter-usina" onchange="applyFilters()" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white">
+                        <option value="">Todas as Usinas</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Condição do Material</label>
+                    <select id="filter-condicao" onchange="applyFilters()" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Cards Grid -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Card 1 -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Produção Realizada</p>
+                    <h3 id="kpi-producao" class="text-2xl font-bold text-slate-800 mt-1">0,00 t</h3>
+                    <p class="text-xs text-slate-500 mt-1"><span id="kpi-producao-plan">Meta: 0,00 t</span></p>
+                </div>
+                <div class="bg-blue-50 text-blue-600 p-3 rounded-xl text-xl">
+                    <i class="fa-solid fa-weight-scale"></i>
+                </div>
+            </div>
+            <!-- Card 2 -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Óleo de Queima Total</p>
+                    <h3 id="kpi-oleo" class="text-2xl font-bold text-slate-800 mt-1">0 L</h3>
+                    <p class="text-xs text-slate-500 mt-1"><span id="kpi-oleo-media">Média: 0 L/t</span></p>
+                </div>
+                <div class="bg-amber-50 text-amber-600 p-3 rounded-xl text-xl">
+                    <i class="fa-solid fa-fire"></i>
+                </div>
+            </div>
+            <!-- Card 3 -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Consumo de CAP</p>
+                    <h3 id="kpi-cap" class="text-2xl font-bold text-slate-800 mt-1">0,00 kg</h3>
+                    <p class="text-xs text-brand-600 font-medium mt-1"><span id="kpi-cap-pct">Média %CAP: 0%</span></p>
+                </div>
+                <div class="bg-green-50 text-brand-600 p-3 rounded-xl text-xl">
+                    <i class="fa-solid fa-droplet"></i>
+                </div>
+            </div>
+            <!-- Card 4 -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Horas Trab. / Paradas</p>
+                    <h3 id="kpi-horas" class="text-2xl font-bold text-slate-800 mt-1">0h / 0h</h3>
+                    <p class="text-xs text-slate-500 mt-1"><span id="kpi-registros">0 registros válidos</span></p>
+                </div>
+                <div class="bg-purple-50 text-purple-600 p-3 rounded-xl text-xl">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+            </div>
+            <!-- Card 5: Perda de Material -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Perda de Material</p>
+                    <h3 id="kpi-perda" class="text-2xl font-bold text-slate-800 mt-1">0,00 t</h3>
+                    <p class="text-xs text-rose-600 font-medium mt-1"><span id="kpi-perda-pct">Média: 0%</span></p>
+                </div>
+                <div class="bg-rose-50 text-rose-600 p-3 rounded-xl text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Grid -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-700 text-sm mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-line text-brand-600"></i>
+                    <span>Evolução Diária da Produção (t)</span>
+                </h3>
+                <div class="relative h-72">
+                    <canvas id="chartEvolucao"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-700 text-sm mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-column text-brand-600"></i>
+                    <span>Produção Total por Usina (t)</span>
+                </h3>
+                <div class="relative h-72">
+                    <canvas id="chartUsina"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-700 text-sm mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-area text-brand-600"></i>
+                    <span>Evolução do Consumo de CAP (%)</span>
+                </h3>
+                <div class="relative h-72">
+                    <canvas id="chartCap"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-semibold text-slate-700 text-sm mb-4 flex items-center space-x-2">
+                    <i class="fa-solid fa-chart-pie text-brand-600"></i>
+                    <span>Participação na Produção Total (%)</span>
+                </h3>
+                <div class="relative h-72">
+                    <canvas id="chartParticipacao"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Consolidated Data Table -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-table text-brand-600"></i>
+                    <h3 class="font-semibold text-slate-700">Base Consolidada de Lançamentos Diários</h3>
+                    <span id="table-count" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">0 registros</span>
+                </div>
+                <div class="flex items-center space-x-2 w-full sm:w-auto">
+                    <input type="text" id="table-search" placeholder="Pesquisar..." onkeyup="filterTable()" class="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-brand-500 focus:outline-none w-full sm:w-64">
+                    <button onclick="exportTableToCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium transition flex items-center space-x-1">
+                        <i class="fa-solid fa-download"></i>
+                        <span>CSV</span>
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-50 text-slate-600 uppercase font-semibold sticky top-0 border-b border-slate-200 z-10">
+                        <tr>
+                            <th class="p-3">Data</th>
+                            <th class="p-3">Usina</th>
+                            <th class="p-3 text-right">Produção Realizada (t)</th>
+                            <th class="p-3 text-right">Produção Planejada (t)</th>
+                            <th class="p-3 text-right">Horas Trab.</th>
+                            <th class="p-3 text-right">Óleo Queima (L)</th>
+                            <th class="p-3 text-right">CAP Cons. (kg)</th>
+                            <th class="p-3 text-right">% CAP</th>
+                            <th class="p-3">Condição</th>
+                            <th class="p-3">Aba Origem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Import Modal -->
+    <div id="import-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 class="font-bold text-slate-800 text-lg flex items-center space-x-2">
+                    <i class="fa-solid fa-file-excel text-brand-600"></i>
+                    <span>Importar Nova Planilha Excel</span>
+                </h3>
+                <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <p class="text-xs text-slate-500">Selecione o arquivo Excel atualizado (.xlsx ou .xls). O sistema consolidará automaticamente as abas diárias.</p>
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-brand-500 transition cursor-pointer" onclick="document.getElementById('excel-file-input').click()">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-brand-600 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700" id="file-name-display">Clique para selecionar o arquivo Excel</p>
+                    <p class="text-xs text-slate-400 mt-1">XLSX, XLS</p>
+                    <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="hidden" onchange="handleFileSelect(event)">
+                </div>
+                <div class="space-y-2 pt-2">
+                    <label class="block text-xs font-semibold text-slate-600">Estratégia de Importação:</label>
+                    <div class="flex space-x-4 text-xs">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="import-strategy" value="replace" checked class="text-brand-600 focus:ring-brand-500">
+                            <span>Substituir base atual</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="import-strategy" value="append" class="text-brand-600 focus:ring-brand-500">
+                            <span>Adicionar novos lançamentos</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button onclick="closeImportModal()" class="px-4 py-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">Cancelar</button>
+                <button onclick="processImport()" id="btn-confirm-import" disabled class="px-4 py-2 text-xs bg-brand-600 hover:bg-brand-700 text-white rounded-lg font-medium transition opacity-50 cursor-not-allowed">Processar Importação</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Application -->
+    <script>
+        // Embedded consolidated data directly extracted from the Excel file
+        const rawInitialData = [{"data": "2026-09-27", "usina": "Fixa", "prod": 246.99, "plan": 300.0, "horas": 3.8, "oleo": 1680.0, "cap": 10.0, "paradas": 5.2, "perdas": 5.0, "condicao": "Seco", "capPct": 0.03968411444898607, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-09-28", "usina": "Fixa", "prod": 480.68, "plan": 550.0, "horas": 10.0, "oleo": 2582.0, "cap": 20.509999999999994, "paradas": 0.0, "perdas": 10.0, "condicao": "Umido", "capPct": 0.041799135893046374, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-09-29", "usina": "Fixa", "prod": 423.07, "plan": 632.4, "horas": 8.0, "oleo": 2678.0, "cap": 15.0, "paradas": 1.0, "perdas": 6.0, "condicao": "Seco", "capPct": 0.03495933064534924, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-09-30", "usina": "Fixa", "prod": 449.83, "plan": 449.83, "horas": 7.73, "oleo": 2131.0, "cap": 21.45, "paradas": 1.2699999999999996, "perdas": 6.0, "condicao": "Seco", "capPct": 0.047057016870324465, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-01", "usina": "Fixa", "prod": 49.65, "plan": 300.0, "horas": 1.68, "oleo": 1297.0, "cap": 2.84, "paradas": 7.32, "perdas": 15.0, "condicao": "Seco", "capPct": 0.04392884764114462, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-02", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-03", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-04", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-05", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-06", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-07", "usina": "Fixa", "prod": 86.99, "plan": 80.0, "horas": 2.0, "oleo": 1000.0, "cap": 3.76, "paradas": 7.0, "perdas": 5.0, "condicao": "Umido", "capPct": 0.04087400804435265, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-08", "usina": "Fixa", "prod": 178.04, "plan": 360.0, "horas": 3.45, "oleo": 1186.0, "cap": 8.58, "paradas": 5.55, "perdas": 27.0, "condicao": "Seco", "capPct": 0.04184549356223176, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-09", "usina": "Fixa", "prod": 253.59, "plan": 253.59, "horas": 6.0, "oleo": 2000.0, "cap": 12.0, "paradas": 3.0, "perdas": 9.0, "condicao": "Seco", "capPct": 0.04569861761681709, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-10", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-11", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-12", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-13", "usina": "Fixa", "prod": 50.0, "plan": 50.0, "horas": 1.5, "oleo": 300.0, "cap": 2.5, "paradas": 3.0, "perdas": 15.0, "condicao": "Seco", "capPct": 0.038461538461538464, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-14", "usina": "Fixa", "prod": 53.8, "plan": 53.8, "horas": 1.5, "oleo": 1.7, "cap": 2.8, "paradas": 3.0, "perdas": 12.0, "condicao": "Seco", "capPct": 0.0425531914893617, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-15", "usina": "Fixa", "prod": 325.26, "plan": 325.26, "horas": 6.0, "oleo": 1608.0, "cap": 13.100000000000001, "paradas": 3.0, "perdas": 10.0, "condicao": "Seco", "capPct": 0.0390741514048798, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-16", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-17", "usina": "Fixa", "prod": 186.66, "plan": 186.66, "horas": 3.0, "oleo": 1045.0, "cap": 9.169999999999995, "paradas": 6.0, "perdas": 7.0, "condicao": "Seco", "capPct": 0.04735102757409891, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-18", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-19", "usina": "Fixa", "prod": 233.21, "plan": 300.0, "horas": 5.0, "oleo": 1375.0, "cap": 10.0, "paradas": 4.0, "perdas": 6.0, "condicao": "Seco", "capPct": 0.04180427239663893, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-20", "usina": "Fixa", "prod": 82.49, "plan": 300.0, "horas": 1.6, "oleo": 500.0, "cap": 4.0, "paradas": 7.4, "perdas": 15.0, "condicao": "Seco", "capPct": 0.041029849215304136, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-21", "usina": "Fixa", "prod": 332.98, "plan": 332.98, "horas": 8.0, "oleo": 3648.0, "cap": 15.21, "paradas": 1.0, "perdas": 12.0, "condicao": "Seco", "capPct": 0.044089512435503506, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-22", "usina": "Fixa", "prod": 197.28, "plan": 197.28, "horas": 3.8, "oleo": 1612.0, "cap": 7.0, "paradas": 5.2, "perdas": 6.0, "condicao": "Seco", "capPct": 0.03443526170798898, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-23", "usina": "Fixa", "prod": 77.35, "plan": 200.0, "horas": 1.4, "oleo": 1026.0, "cap": 2.739999999999995, "paradas": 7.6, "perdas": 6.0, "condicao": "Seco", "capPct": 0.032873425314936956, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-24", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-25", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-10-26", "usina": "Fixa", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "-", "capPct": 0.0, "origem": "Diário Usina Fixa Uberaba"}, {"data": "2026-09-29", "usina": "Móvel", "prod": 203.41, "plan": 203.41, "horas": 3.2, "oleo": 1807.0, "cap": 10.0, "paradas": 5.8, "perdas": 5.0, "condicao": "Seco", "capPct": 0.04798234249796075, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-09-30", "usina": "Móvel", "prod": 151.34, "plan": 151.34, "horas": 2.5, "oleo": 1218.0, "cap": 7.97, "paradas": 6.5, "perdas": 5.0, "condicao": "Seco", "capPct": 0.05097863630548804, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-01", "usina": "Movel", "prod": 192.0, "plan": 192.0, "horas": 2.7, "oleo": 1020.0, "cap": 10.12, "paradas": 6.3, "perdas": 5.0, "condicao": "Seco", "capPct": 0.05137055837563451, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-02", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-03", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-04", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-05", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-06", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-07", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-08", "usina": "Movel", "prod": 452.4, "plan": 452.4, "horas": 9.2, "oleo": 5059.0, "cap": 24.0, "paradas": 0.0, "perdas": 5.0, "condicao": "Seco", "capPct": 0.05247048535198951, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-09", "usina": "Movel", "prod": 264.16, "plan": 264.16, "horas": 5.0, "oleo": 2000.0, "cap": 13.44, "paradas": 4.0, "perdas": 5.0, "condicao": "Seco", "capPct": 0.049933125278644665, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-10", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-11", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-12", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-13", "usina": "Movel", "prod": 222.4, "plan": 222.4, "horas": 3.7, "oleo": 1220.0, "cap": 9.8, "paradas": 5.3, "perdas": 5.0, "condicao": "Seco", "capPct": 0.04309586631486368, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-14", "usina": "Movel", "prod": 243.78, "plan": 270.0, "horas": 3.7, "oleo": 1700.0, "cap": 12.8, "paradas": 5.3, "perdas": 12.0, "condicao": "Seco", "capPct": 0.050043005708030344, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-15", "usina": "Movel", "prod": 40.95, "plan": 300.0, "horas": 0.9, "oleo": 300.0, "cap": 2.1, "paradas": 8.1, "perdas": 5.0, "condicao": "Seco", "capPct": 0.04570184983677911, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-16", "usina": "Movel", "prod": 174.32, "plan": 174.32, "horas": 3.2, "oleo": 700.0, "cap": 9.0, "paradas": 5.8, "perdas": 5.0, "condicao": "Seco", "capPct": 0.050189605175105956, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-17", "usina": "Movel", "prod": 34.77, "plan": 150.0, "horas": 0.5, "oleo": 200.0, "cap": 2.0, "paradas": 8.5, "perdas": 5.0, "condicao": "Seco", "capPct": 0.050289162685441285, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-18", "usina": "Movel", "prod": 132.0, "plan": 132.0, "horas": 6.3, "oleo": 850.0, "cap": 6.7, "paradas": 2.7, "perdas": 5.0, "condicao": "Seco", "capPct": 0.04890510948905109, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-19", "usina": "Movel", "prod": 149.23, "plan": 149.23, "horas": 2.7, "oleo": 730.0, "cap": 8.16, "paradas": 6.3, "perdas": 5.0, "condicao": "Seco", "capPct": 0.0529079945535888, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-20", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 9.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-21", "usina": "Movel", "prod": 191.98, "plan": 191.98, "horas": 3.5, "oleo": 970.0, "cap": 9.5, "paradas": 5.5, "perdas": 5.0, "condicao": "Seco", "capPct": 0.048228246522489596, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-22", "usina": "Movel", "prod": 144.49, "plan": 144.49, "horas": 2.8, "oleo": 1400.0, "cap": 5.7, "paradas": 6.2, "perdas": 5.0, "condicao": "Seco", "capPct": 0.0381296407786474, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-23", "usina": "Movel", "prod": 178.2, "plan": 178.2, "horas": 2.5, "oleo": 1000.0, "cap": 8.23, "paradas": 6.5, "perdas": 11.0, "condicao": "Seco", "capPct": 0.04349894291754757, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-24", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-25", "usina": "Movel", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-26", "usina": "Movel", "prod": 111.03, "plan": 111.03, "horas": 2.2, "oleo": 700.0, "cap": 6.5, "paradas": 6.8, "perdas": 3.5, "condicao": "Seco", "capPct": 0.056753688989784334, "origem": "Diário Usina Móvel Uberaba"}, {"data": "2026-10-01", "usina": "ARAGUARI", "prod": 100.7, "plan": 100.7, "horas": 1.12, "oleo": 650.0, "cap": 6.5, "paradas": 7.88, "perdas": 4.0, "condicao": "Seco", "capPct": 0.06208213944603629, "origem": "Diário Usina Araguari"}, {"data": "2026-10-02", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-03", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Umido", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-04", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Umido", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-05", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Umido", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-06", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Umido", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-07", "usina": "ARAGUARI", "prod": 152.78, "plan": 153.0, "horas": 2.35, "oleo": 1200.0, "cap": 7.0, "paradas": 6.65, "perdas": 10.0, "condicao": "Umido", "capPct": 0.04300282589998771, "origem": "Diário Usina Araguari"}, {"data": "2026-10-08", "usina": "ARAGUARI", "prod": 173.66, "plan": 175.0, "horas": 3.21, "oleo": 1000.0, "cap": 8.1, "paradas": 5.79, "perdas": 10.0, "condicao": "Umido", "capPct": 0.044103234237177394, "origem": "Diário Usina Araguari"}, {"data": "2026-10-09", "usina": "ARAGUARI", "prod": 61.12, "plan": 62.0, "horas": 1.5, "oleo": 350.0, "cap": 2.9, "paradas": 7.5, "perdas": 5.0, "condicao": "Seco", "capPct": 0.043859649122807015, "origem": "Diário Usina Araguari"}, {"data": "2026-10-10", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-11", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-12", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 9.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-13", "usina": "ARAGUARI", "prod": 101.82, "plan": 100.0, "horas": 1.2, "oleo": 700.0, "cap": 4.18, "paradas": 7.8, "perdas": 6.0, "condicao": "Seco", "capPct": 0.03876831756631423, "origem": "Diário Usina Araguari"}, {"data": "2026-10-14", "usina": "ARAGUARI", "prod": 68.94, "plan": 70.0, "horas": 1.17, "oleo": 350.0, "cap": 3.1, "paradas": 7.83, "perdas": 4.0, "condicao": "Seco", "capPct": 0.04250068549492734, "origem": "Diário Usina Araguari"}, {"data": "2026-10-15", "usina": "ARAGUARI", "prod": 120.16, "plan": 122.0, "horas": 2.1, "oleo": 730.0, "cap": 5.5, "paradas": 6.9, "perdas": 6.0, "condicao": "Seco", "capPct": 0.04359543436905517, "origem": "Diário Usina Araguari"}, {"data": "2026-10-16", "usina": "ARAGUARI", "prod": 32.78, "plan": 70.0, "horas": 0.5, "oleo": 230.0, "cap": 1.41, "paradas": 8.5, "perdas": 6.0, "condicao": "Seco", "capPct": 0.03635894791129448, "origem": "Diário Usina Araguari"}, {"data": "2026-10-17", "usina": "ARAGUARI", "prod": 87.44, "plan": 120.0, "horas": 1.33, "oleo": 600.0, "cap": 3.76, "paradas": 7.67, "perdas": 6.0, "condicao": "Seco", "capPct": 0.04023972602739726, "origem": "Diário Usina Araguari"}, {"data": "2026-10-18", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "1900-01-19", "usina": "ARAGUARI", "prod": 119.99, "plan": 122.0, "horas": 2.01, "oleo": 700.0, "cap": 5.36, "paradas": 6.99, "perdas": 6.0, "condicao": "Seco", "capPct": 0.04254305897293437, "origem": "Diário Usina Araguari"}, {"data": "2026-10-20", "usina": "ARAGUARI", "prod": 190.42, "plan": 192.0, "horas": 5.03, "oleo": 1280.0, "cap": 8.9, "paradas": 5.03, "perdas": 10.0, "condicao": "Seco", "capPct": 0.04440674583374913, "origem": "Diário Usina Araguari"}, {"data": "2026-10-21", "usina": "ARAGUARI", "prod": 139.6, "plan": 140.0, "horas": 2.36, "oleo": 900.0, "cap": 5.17, "paradas": 6.64, "perdas": 6.0, "condicao": "Seco", "capPct": 0.03550824175824176, "origem": "Diário Usina Araguari"}, {"data": "2026-10-22", "usina": "ARAGUARI", "prod": 88.68, "plan": 88.0, "horas": 1.38, "oleo": 600.0, "cap": 3.29, "paradas": 7.62, "perdas": 5.0, "condicao": "Seco", "capPct": 0.035119555935098204, "origem": "Diário Usina Araguari"}, {"data": "2026-10-23", "usina": "ARAGUARI", "prod": 38.54, "plan": 80.0, "horas": 1.15, "oleo": 400.0, "cap": 1.5, "paradas": 7.85, "perdas": 5.0, "condicao": "Seco", "capPct": 0.034451079467156635, "origem": "Diário Usina Araguari"}, {"data": "2026-10-24", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-25", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}, {"data": "2026-10-26", "usina": "ARAGUARI", "prod": 0.0, "plan": 0.0, "horas": 0.0, "oleo": 0.0, "cap": 0.0, "paradas": 0.0, "perdas": 0.0, "condicao": "Seco", "capPct": 0.0, "origem": "Diário Usina Araguari"}];
+
+        let globalData = [];
+        let charts = {};
+        let selectedFileForImport = null;
+
+        function initApp() {
+            globalData = rawInitialData;
+            localStorage.setItem('usinas_consolidated_data', JSON.stringify(globalData));
+
+            document.getElementById('last-update').innerText = 'Atualizado: ' + new Date().toLocaleString('pt-BR');
+            populateFilterOptions();
+            setDefaultDates();
+            applyFilters();
+        }
+
+        function setDefaultDates() {
+            if (globalData.length === 0) return;
+            const dates = globalData.map(d => d.data).sort();
+            document.getElementById('filter-start-date').value = dates[0];
+            document.getElementById('filter-end-date').value = dates[dates.length - 1];
+        }
+
+        function populateFilterOptions() {
+            const usinas = [...new Set(globalData.map(d => d.usina))].sort();
+            const condicoes = [...new Set(globalData.map(d => d.condicao).filter(Boolean))].sort();
+
+            const usinaSelect = document.getElementById('filter-usina');
+            usinaSelect.innerHTML = '<option value="">Todas as Usinas</option>';
+            usinas.forEach(u => {
+                usinaSelect.innerHTML += `<option value="${u}">${u}</option>`;
+            });
+
+            const condSelect = document.getElementById('filter-condicao');
+            condSelect.innerHTML = '<option value="">Todas</option>';
+            condicoes.forEach(c => {
+                condSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function resetFilters() {
+            setDefaultDates();
+            document.getElementById('filter-usina').value = '';
+            document.getElementById('filter-condicao').value = '';
+            document.getElementById('table-search').value = '';
+            applyFilters();
+        }
+
+        function setQuickFilter(type) {
+            if (type === 'all') {
+                setDefaultDates();
+                applyFilters();
+            }
+        }
+
+        function getFilteredData() {
+            const startDate = document.getElementById('filter-start-date').value;
+            const endDate = document.getElementById('filter-end-date').value;
+            const usina = document.getElementById('filter-usina').value;
+            const condicao = document.getElementById('filter-condicao').value;
+
+            return globalData.filter(d => {
+                if (startDate && d.data < startDate) return false;
+                if (endDate && d.data > endDate) return false;
+                if (usina && d.usina !== usina) return false;
+                if (condicao && d.condicao !== condicao) return false;
+                return true;
+            });
+        }
+
+        function applyFilters() {
+            const filtered = getFilteredData();
+            updateKPIs(filtered);
+            updateCharts(filtered);
+            updateTable(filtered);
+        }
+
+        function updateKPIs(data) {
+            const totalProd = data.reduce((acc, curr) => acc + (curr.prod || 0), 0);
+            const totalPlan = data.reduce((acc, curr) => acc + (curr.plan || 0), 0);
+            const totalOleo = data.reduce((acc, curr) => acc + (curr.oleo || 0), 0);
+            const totalCap = data.reduce((acc, curr) => acc + (curr.cap || 0), 0);
+            const totalHoras = data.reduce((acc, curr) => acc + (curr.horas || 0), 0);
+            const totalParadas = data.reduce((acc, curr) => acc + (curr.paradas || 0), 0);
+            const totalPerdas = data.reduce((acc, curr) => acc + (curr.perdas || 0), 0);
+            
+            const validProdCount = data.filter(d => d.prod > 0).length;
+            const mediaOleoT = totalProd > 0 ? (totalOleo / totalProd).toFixed(2) : 0;
+            const mediaCapPct = validProdCount > 0 ? (data.reduce((acc, curr) => acc + (curr.capPct || 0), 0) / validProdCount * 100).toFixed(2) : 0;
+            const mediaPerdasPct = (totalProd + totalPerdas) > 0 ? (totalPerdas / (totalProd + totalPerdas) * 100).toFixed(2) : 0;
+
+            document.getElementById('kpi-producao').innerText = totalProd.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' t';
+            document.getElementById('kpi-producao-plan').innerText = 'Meta: ' + totalPlan.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' t';
+            
+            document.getElementById('kpi-oleo').innerText = totalOleo.toLocaleString('pt-BR') + ' L';
+            document.getElementById('kpi-oleo-media').innerText = 'Média: ' + mediaOleoT + ' L/t';
+
+            document.getElementById('kpi-cap').innerText = totalCap.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' kg';
+            document.getElementById('kpi-cap-pct').innerText = 'Média %CAP: ' + mediaCapPct + '%';
+
+            document.getElementById('kpi-horas').innerText = totalHoras.toFixed(1) + 'h / ' + totalParadas.toFixed(1) + 'h';
+            document.getElementById('kpi-registros').innerText = data.length + ' registros considerados';
+
+            document.getElementById('kpi-perda').innerText = totalPerdas.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' t';
+            document.getElementById('kpi-perda-pct').innerText = 'Taxa sobre Total: ' + mediaPerdasPct + '%';
+        }
+
+        function updateCharts(data) {
+            const dateMap = {};
+            data.forEach(d => {
+                if (!dateMap[d.data]) dateMap[d.data] = 0;
+                dateMap[d.data] += d.prod;
+            });
+            const sortedDates = Object.keys(dateMap).sort();
+            const prodValues = sortedDates.map(dt => dateMap[dt]);
+
+            const ctxEvolucao = document.getElementById('chartEvolucao').getContext('2d');
+            if (charts.evolucao) charts.evolucao.destroy();
+            charts.evolucao = new Chart(ctxEvolucao, {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: 'Produção (t)',
+                        data: prodValues,
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const usinaMap = {};
+            data.forEach(d => {
+                if (!usinaMap[d.usina]) usinaMap[d.usina] = 0;
+                usinaMap[d.usina] += d.prod;
+            });
+            const usinas = Object.keys(usinaMap);
+            const usinaProds = usinas.map(u => usinaMap[u]);
+
+            const ctxUsina = document.getElementById('chartUsina').getContext('2d');
+            if (charts.usina) charts.usina.destroy();
+            charts.usina = new Chart(ctxUsina, {
+                type: 'bar',
+                data: {
+                    labels: usinas,
+                    datasets: [{
+                        label: 'Produção Total (t)',
+                        data: usinaProds,
+                        backgroundColor: ['#16a34a', '#3b82f6', '#f59e0b', '#8b5cf6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const capPctValues = sortedDates.map(dt => {
+                const dayItems = data.filter(d => d.data === dt);
+                const avg = dayItems.length > 0 ? dayItems.reduce((acc, curr) => acc + (curr.capPct || 0), 0) / dayItems.length * 100 : 0;
+                return avg.toFixed(2);
+            });
+
+            const ctxCap = document.getElementById('chartCap').getContext('2d');
+            if (charts.cap) charts.cap.destroy();
+            charts.cap = new Chart(ctxCap, {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: '% CAP Médio',
+                        data: capPctValues,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+
+            const ctxPart = document.getElementById('chartParticipacao').getContext('2d');
+            if (charts.part) charts.part.destroy();
+            charts.part = new Chart(ctxPart, {
+                type: 'doughnut',
+                data: {
+                    labels: usinas,
+                    datasets: [{
+                        data: usinaProds,
+                        backgroundColor: ['#16a34a', '#3b82f6', '#f59e0b', '#8b5cf6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function updateTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            document.getElementById('table-count').innerText = data.length + ' registros';
+
+            data.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-3 font-medium">${d.data}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-700 font-medium">${d.usina}</span></td>
+                    <td class="p-3 text-right font-semibold">${(d.prod || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right">${(d.plan || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 text-right">${(d.horas || 0).toFixed(2)}h</td>
+                    <td class="p-3 text-right">${(d.oleo || 0).toLocaleString('pt-BR')} L</td>
+                    <td class="p-3 text-right">${(d.cap || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})} kg</td>
+                    <td class="p-3 text-right font-medium text-brand-600">${((d.capPct || 0) * 100).toFixed(2)}%</td>
+                    <td class="p-3">${d.condicao || '-'}</td>
+                    <td class="p-3 text-slate-400 text-xs">${d.origem}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const query = document.getElementById('table-search').value.toLowerCase();
+            const rows = document.getElementById('table-body').getElementsByTagName('tr');
+            for (let row of rows) {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            }
+        }
+
+        function exportTableToCSV() {
+            const filtered = getFilteredData();
+            let csv = 'Data,Usina,Produção Realizada (t),Produção Planejada (t),Horas Trabalhadas,Óleo de Queima (L),CAP Consumido (kg),%CAP,Condição,Origem\n';
+            filtered.forEach(d => {
+                csv += `"${d.data}","${d.usina}",${d.prod},${d.plan},${d.horas},${d.oleo},${d.cap},${d.capPct},"${d.condicao || ''}","${d.origem}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'lancamentos_usinas_filtrado.csv';
+            link.click();
+        }
+
+        function openImportModal() {
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+            selectedFileForImport = null;
+            document.getElementById('file-name-display').innerText = 'Clique para selecionar o arquivo Excel';
+            document.getElementById('btn-confirm-import').disabled = true;
+            document.getElementById('btn-confirm-import').classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFileForImport = file;
+                document.getElementById('file-name-display').innerText = file.name;
+                document.getElementById('btn-confirm-import').disabled = false;
+                document.getElementById('btn-confirm-import').classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        function processImport() {
+            if (!selectedFileForImport) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    let newRecords = [];
+                    workbook.SheetNames.forEach(sheetName => {
+                        if (sheetName.toLowerCase().includes('diário') || sheetName.toLowerCase().includes('diario')) {
+                            const sheet = workbook.Sheets[sheetName];
+                            const json = XLSX.utils.sheet_to_json(sheet, {header: 1});
+                            
+                            let headerIdx = 0;
+                            for (let i = 0; i < Math.min(5, json.length); i++) {
+                                const rowStr = JSON.stringify(json[i]).toLowerCase();
+                                if (rowStr.includes('data') && (rowStr.includes('usina') || rowStr.includes('produção'))) {
+                                    headerIdx = i;
+                                    break;
+                                }
+                            }
+
+                            for (let i = headerIdx + 1; i < json.length; i++) {
+                                const row = json[i];
+                                if (!row || row.length === 0 || !row[0]) continue;
+                                
+                                let rawDate = row[0];
+                                let dateStr = '';
+                                if (typeof rawDate === 'number') {
+                                    const utc_days = Math.floor(rawDate - 25569);
+                                    const utc_value = utc_days * 86400;
+                                    const dateInfo = new Date(utc_value * 1000);
+                                    dateStr = dateInfo.toISOString().split('T')[0];
+                                } else {
+                                    dateStr = String(rawDate).split('T')[0];
+                                }
+
+                                if (!dateStr || dateStr.length < 10) continue;
+
+                                newRecords.push({
+                                    data: dateStr,
+                                    usina: String(row[1] || 'Usina').trim(),
+                                    prod: parseFloat(row[2]) || 0,
+                                    horas: parseFloat(row[3]) || 0,
+                                    plan: parseFloat(row[4]) || 0,
+                                    oleo: parseFloat(row[5]) || 0,
+                                    cap: parseFloat(row[6]) || 0,
+                                    paradas: parseFloat(row[7]) || 0,
+                                    perdas: parseFloat(row[8]) || 0,
+                                    condicao: String(row[9] || 'Seco'),
+                                    capPct: parseFloat(row[13]) || 0,
+                                    origem: sheetName
+                                });
+                            }
+                        }
+                    });
+
+                    if (newRecords.length > 0) {
+                        const strategy = document.querySelector('input[name="import-strategy"]:checked').value;
+                        if (strategy === 'replace') {
+                            globalData = newRecords;
+                        } else {
+                            globalData = [...globalData, ...newRecords];
+                        }
+                        localStorage.setItem('usinas_consolidated_data', JSON.stringify(globalData));
+                        alert(`Importação concluída com sucesso! ${newRecords.length} registros processados.`);
+                        closeImportModal();
+                        populateFilterOptions();
+                        applyFilters();
+                    } else {
+                        alert('Nenhum registro válido encontrado nas abas diárias da planilha.');
+                    }
+                } catch(err) {
+                    console.error(err);
+                    alert('Erro ao processar o arquivo Excel.');
+                }
+            };
+            reader.readAsArrayBuffer(selectedFileForImport);
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
